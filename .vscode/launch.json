@@ -1,0 +1,22 @@
+{
+  // Use o IntelliSense para saber mais sobre os atributos possíveis.
+  // Focalizar para exibir as descrições dos atributos existentes.
+  // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter (Pixel 5 API 30 - Android 11)",
+      "program": "lib/main.dart",
+      "deviceId": "emulator-5554",
+      "request": "launch",
+      "type": "dart"
+    },
+    {
+      "name": "Flutter (SM N770F)",
+      "program": "lib/main.dart",
+      "deviceId": "RQ8NA022KWY",
+      "request": "launch",
+      "type": "dart"
+    }
+  ]
+}
