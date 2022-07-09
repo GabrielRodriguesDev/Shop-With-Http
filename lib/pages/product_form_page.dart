@@ -1,6 +1,4 @@
-// ignore_for_file: avoid_print, prefer_collection_literals, no_leading_underscores_for_local_identifiers
-
-import 'dart:math';
+// ignore_for_file: avoid_print, prefer_collection_literals, no_leading_underscores_for_local_identifiers, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -21,7 +19,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
   final _imageUrlFocus = FocusNode();
   final _imageUrlController =
       TextEditingController(); //! Criando a controler para ter acesso ao campo antes de submeter o form
-
+  bool isLoad = false;
   final _formKey = GlobalKey<FormState>();
   final _formData = Map<String, Object>();
 
@@ -71,17 +69,42 @@ class _ProductFormPageState extends State<ProductFormPage> {
     setState(() {});
   }
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
     final isValid = _formKey.currentState?.validate() ?? false;
 
     if (!isValid) {
       return;
     }
 
-    _formKey.currentState?.save();
+    _formKey.currentState?.save(); //!Chamando o onSave do forms
 
-    Provider.of<ProductList>(context, listen: false).saveProduct(_formData);
-    Navigator.of(context).pop();
+    setState(() {
+      isLoad = true;
+    });
+    try {
+      await Provider.of<ProductList>(context, listen: false)
+          .saveProduct(_formData);
+      Navigator.of(context).pop();
+    } catch (error) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Ocorreu um erro!'),
+          content: Text(error.toString()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Ok'),
+            )
+          ],
+        ),
+      );
+    } finally {
+      setState(() {
+        isLoad = false;
+      });
+      print('cai aqui');
+    }
   }
 
   @override
@@ -117,6 +140,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
                   if (_name.trim().length < 3) {
                     return 'Nome precisa de no mínimo 3 letras.';
                   }
+                  return null;
                 },
                 onSaved: (name) => _formData['name'] = name ?? '',
               ),
@@ -136,6 +160,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
                     if (_price.trim().isEmpty) {
                       return 'Preço é obrigatório.';
                     }
+                    return null;
                   },
                   onSaved: (price) =>
                       _formData['price'] = double.parse(price ?? '0')),
@@ -155,6 +180,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
                   if (_description.trim().length < 10) {
                     return 'Descriçãp precisa de no mínimo 10 letras.';
                   }
+                  return null;
                 },
                 onSaved: (description) =>
                     _formData['description'] = description ?? '',
@@ -176,6 +202,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
                         if (!isValidImageUrl(_imageUrl)) {
                           return 'Informe uma url válida.';
                         }
+                        return null;
                       },
                       onSaved: (imageUrl) =>
                           _formData['imageUrl'] = imageUrl ?? '',

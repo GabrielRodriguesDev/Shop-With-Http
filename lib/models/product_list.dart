@@ -1,10 +1,14 @@
-// ignore_for_file: prefer_final_fields, unused_field
+// ignore_for_file: prefer_final_fields, unused_field, avoid_print, unnecessary_brace_in_string_interps
 
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
-import 'package:shop/data/dummy_data.dart';
+import 'package:http/http.dart' as http;
+import 'package:shop/exceptions/http_exception.dart';
 import 'package:shop/models/product.dart';
+
+import '../utils/constants.dart';
 
 class ProductList with ChangeNotifier {
   //! Uma classe que estende ou usa como mixing o ChangeNotifier pode chamar a notifyListeners() qualquer momento que os dados
@@ -12,36 +16,106 @@ class ProductList with ChangeNotifier {
   //! Isso geralmente é feito em um modelo de exibição para notificar a interface do usuário para reconstruir o layout com base
   //! nos novos dados.
 
-  List<Product> _items = dummyProducts;
+  List<Product> _items = [];
 
   List<Product> get items => _items.toList();
 
   List<Product> get itemsFavorite =>
       _items.where((product) => product.isFavorite).toList();
 
-  void addProduct(Product product) {
-    _items.add(product);
-    notifyListeners(); //! Notificando os listeners
+  Future<void> loadProducts() async {
+    _items.clear();
+    final response =
+        await http.get(Uri.parse('${Constants.PRODUCT_BASE_URL}.json'));
+    if (response.body == 'null') return;
+    Map<String, dynamic> data = jsonDecode(response.body);
+    data.forEach(
+      (productId, productData) {
+        print('${productId} : ${productData}');
+        print(_items);
+        _items.add(
+          Product(
+            id: productId,
+            name: productData['name'],
+            description: productData['description'],
+            price: productData['price'],
+            imageUrl: productData['imageUrl'],
+            isFavorite: productData['isFavorite'],
+          ),
+        );
+      },
+    );
+    notifyListeners();
   }
 
-  void updateProduct(Product product) {
+  Future<void> addProduct(Product product) async {
+    final response = await http.post(
+      Uri.parse('${Constants.PRODUCT_BASE_URL}.json'),
+      body: jsonEncode(
+        {
+          "name": product.name,
+          "price": product.price,
+          "description": product.description,
+          "imageUrl": product.imageUrl,
+          "isFavorite": product.isFavorite,
+        },
+      ),
+    );
+
+    final id = jsonDecode(response.body)['name'];
+    _items.add(
+      Product(
+          id: id,
+          name: product.name,
+          price: product.price,
+          description: product.description,
+          imageUrl: product.imageUrl,
+          isFavorite: product.isFavorite),
+    );
+    notifyListeners();
+  }
+
+  Future<void> updateProduct(Product product) async {
+    int index = _items.indexWhere((prod) => prod.id == product.id);
+
+    if (index >= 0) {
+      await http.patch(
+        Uri.parse('$Constants.PRODUCT_BASE_URL/${product.id}.json'),
+        body: jsonEncode(
+          {
+            "name": product.name,
+            "price": product.price,
+            "description": product.description,
+            "imageUrl": product.imageUrl,
+          },
+        ),
+      );
+      _items[index] = product;
+      notifyListeners();
+    }
+    return Future.value();
+  }
+
+  Future<void> removeProduct(Product product) async {
     int index = _items.indexWhere((prod) => prod.id == product.id);
     if (index >= 0) {
-      _items[index] = product;
+      final product = _items[index];
+      _items.remove(product);
+
+      final response = await http.delete(
+        Uri.parse('${Constants.PRODUCT_BASE_URL}/${product.id}.json'),
+      );
+      if (response.statusCode >= 400) {
+        _items.insert(index, product);
+        throw HttpException(
+            msg: 'Não foi possível excluir o produto.',
+            statusCode: response.statusCode);
+      }
     }
     notifyListeners();
   }
 
-  void removeProduct(Product product) {
-    int index = _items.indexWhere((prod) => prod.id == product.id);
-    if (index >= 0) {
-      _items.removeWhere((prod) => prod.id == product.id);
-      _items[index] = product;
-    }
-    notifyListeners();
-  }
-
-  void saveProduct(Map<String, Object> data) {
+  Future<void> saveProduct(Map<String, Object> data) {
     bool hasId = data['id'] != null;
     final product = Product(
       id: hasId ? data['id'] as String : Random().nextDouble().toString(),
@@ -52,9 +126,9 @@ class ProductList with ChangeNotifier {
     );
 
     if (hasId) {
-      updateProduct(product);
+      return updateProduct(product);
     } else {
-      addProduct(product);
+      return addProduct(product);
     }
   }
 
